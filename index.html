@@ -52,12 +52,14 @@
   .field{margin-bottom:12px}
   .field label{display:block; font-size:13px; font-weight:700; color:var(--muted); margin-bottom:5px}
   .field input,.field select,.field textarea{
-    width:100%; border:1.5px solid var(--line); background:var(--bg);
+    width:100%; min-width:0; border:1.5px solid var(--line); background:var(--bg);
     border-radius:12px; padding:11px 12px; outline:none;
   }
   .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent)}
   .row2{display:grid; grid-template-columns:1fr 1fr; gap:10px}
   .row3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px}
+  .row2>*,.row3>*{min-width:0}
+  input[type="date"],input[type="datetime-local"]{-webkit-appearance:none; appearance:none}
 
   /* ---------- En-tête ---------- */
   header.app{
@@ -78,11 +80,12 @@
     position:fixed; left:0; right:0; bottom:0; z-index:30;
     background:var(--card); border-top:1px solid var(--line);
     padding:6px 8px calc(6px + env(safe-area-inset-bottom));
-    display:flex; justify-content:space-around; align-items:center;
+    display:grid; grid-template-columns:1fr 1fr 72px 1fr 1fr; align-items:center;
   }
   nav.tabs button{
     background:none; border:none; color:var(--muted); font-size:11px; font-weight:700;
-    display:flex; flex-direction:column; align-items:center; gap:2px; padding:4px 10px; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:2px; padding:4px 0; cursor:pointer;
+    justify-self:center;
   }
   nav.tabs button.active{color:var(--accent)}
   nav.tabs button .ico{font-size:21px; line-height:1}
@@ -90,6 +93,7 @@
     background:var(--accent); color:var(--accent-ink); border-radius:50%;
     width:58px; height:58px; font-size:30px; font-weight:800; border:none;
     margin-top:-26px; box-shadow:var(--shadow); cursor:pointer; flex-direction:row;
+    justify-self:center; padding:0;
   }
 
   /* ---------- Journal ---------- */
@@ -149,6 +153,12 @@
   .dot{width:11px; height:11px; border-radius:50%}
   .checkline{display:flex; align-items:center; gap:9px; font-size:14.5px; font-weight:600; margin:8px 0}
   .checkline input{width:20px; height:20px; accent-color:var(--accent)}
+  .presets{display:flex; gap:8px; margin-bottom:10px}
+  .pre{
+    flex:1; border:2px solid var(--c-compl); background:transparent; color:var(--c-compl);
+    border-radius:12px; padding:10px 0; font-weight:800; font-size:15px; cursor:pointer;
+  }
+  .pre:active{background:var(--c-compl); color:#fff}
   .composer-actions{display:flex; gap:10px; margin-top:16px}
 
   /* ---------- Poids ---------- */
@@ -169,7 +179,10 @@
     #printArea table{width:100%; border-collapse:collapse; margin-top:4px}
     #printArea th,#printArea td{border:1px solid #999; padding:3px 5px; text-align:left; vertical-align:top}
     #printArea th{background:#eee}
-    #printArea .pbilan{margin:4px 0 2px; padding:6px 8px; background:#f2f2f2; border:1px solid #999}
+    #printArea .pbilan{margin:4px 0 2px; padding:7px 9px; background:#f2f2f2; border:1px solid #999;
+      display:grid; grid-template-columns:repeat(4,1fr); gap:4px 14px}
+    #printArea .pbilan b{font-size:13px}
+    #printArea .pbilan span{display:block; color:#555; font-size:10px; text-transform:uppercase; letter-spacing:.3px}
     #printArea .day{page-break-inside:avoid}
   }
 </style>
@@ -286,6 +299,20 @@
     </div>
 
     <div class="card">
+      <h2 style="font-size:18px; margin-bottom:6px">🎯 Objectifs journaliers</h2>
+      <p class="muted small">À définir avec la sage-femme. Laisse vide pour ne pas suivre d'objectif. Le bilan du journal affichera par ex. « 5/6 » avec un ✓ quand c'est atteint.</p>
+      <div class="row2">
+        <div class="field"><label>Min. tétées / jour</label><input id="gFeeds" type="number" inputmode="numeric" placeholder="—"></div>
+        <div class="field"><label>Min. compléments bus (mL)</label><input id="gDrunk" type="number" inputmode="numeric" placeholder="—"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Min. pipis / jour</label><input id="gUrines" type="number" inputmode="numeric" placeholder="—"></div>
+        <div class="field"><label>Min. selles / jour</label><input id="gStools" type="number" inputmode="numeric" placeholder="—"></div>
+      </div>
+      <button class="btn slim" onclick="saveGoals()">Enregistrer les objectifs</button>
+    </div>
+
+    <div class="card">
       <h2 style="font-size:18px; margin-bottom:6px">📥 Historique initial</h2>
       <p class="muted small">Importe en une fois toutes les données déjà notées à la main : courbe de poids depuis la naissance + journées des 9, 10 et 11 juillet.</p>
       <button class="btn secondary" id="seedBtn" onclick="importSeed()">Importer l'historique de Billie</button>
@@ -329,6 +356,12 @@
 
     <div class="section" data-sec="compl">
       <h3><span class="dot" style="background:var(--c-compl)"></span>Complément (biberon)</h3>
+      <div class="presets">
+        <button type="button" class="pre" onclick="setDrunk(20)">20 mL</button>
+        <button type="button" class="pre" onclick="setDrunk(30)">30 mL</button>
+        <button type="button" class="pre" onclick="setDrunk(40)">40 mL</button>
+        <button type="button" class="pre" onclick="setDrunk(50)">50 mL</button>
+      </div>
       <div class="row2">
         <div class="field"><label>Présenté (mL)</label><input id="fOff" type="number" inputmode="numeric" placeholder="—"></div>
         <div class="field"><label>Bu (mL)</label><input id="fDrunk" type="number" inputmode="numeric" placeholder="—"></div>
@@ -480,7 +513,7 @@ function show(which){
   const app = which==="app" ? "" : "none";
   $("appHeader").style.display = app;
   $("appMain").style.display = app;
-  $("appNav").style.display = which==="app" ? "flex" : "none";
+  $("appNav").style.display = which==="app" ? "grid" : "none";
 }
 
 async function init(){
@@ -508,6 +541,7 @@ async function loadAll(){
     lastLoad = Date.now();
     if (!curDay) curDay = dayKeyOf(new Date());
     await trySyncQueue();
+    startRealtime();
     renderAll();
   }catch(e){
     console.error(e);
@@ -609,6 +643,17 @@ function computeBilan(list){
   }
   return b;
 }
+function setDrunk(v){
+  $("fDrunk").value = v;
+  $("fDrunkUnk").checked = false;
+}
+
+function goalMark(value, goal){
+  if (goal == null || goal === "") return "";
+  const ok = value >= goal;
+  return `<span style="font-size:12px; font-weight:700; color:${ok ? "var(--c-poids)" : "var(--muted)"}">/${goal}${ok ? " ✓" : ""}</span>`;
+}
+
 function renderJournal(){
   const rule = ruleFor(curDay);
   $("dayTitle").textContent = fmtDayKey(curDay);
@@ -619,19 +664,24 @@ function renderJournal(){
   const list = dayEvents(curDay);
   const b = computeBilan(list);
   const plus = n => n ? ` <span style="color:var(--warn)">+${n} ?</span>` : "";
+  const isToday = curDay === dayKeyOf(new Date());
+  const vitTxt = b.vitd ? "☀️ vit. D ✓"
+    : (isToday ? `☀️ <span style="color:var(--warn); font-weight:700">vit. D à donner</span>` : "☀️ vit. D —");
+  const g = settings.goals || {};
   $("bilanCard").innerHTML = `
     <div class="bilan">
-      <div class="cell"><b style="color:var(--c-tetee)">${b.feeds}</b><span>tétées</span></div>
-      <div class="cell"><b style="color:var(--c-compl)">${fmtNum(b.drunk)}${plus(b.drunkUnk)}</b><span>mL bus</span></div>
+      <div class="cell"><b style="color:var(--c-tetee)">${b.feeds}${goalMark(b.feeds, g.feeds)}</b><span>tétées</span></div>
+      <div class="cell"><b style="color:var(--c-compl)">${fmtNum(b.drunk)}${goalMark(b.drunk, g.drunk_ml)}${plus(b.drunkUnk)}</b><span>mL bus</span></div>
       <div class="cell"><b style="color:var(--c-tire)">${fmtNum(b.pumped)}${plus(b.pumpUnk)}</b><span>mL tirés</span></div>
-      <div class="cell"><b style="color:var(--c-pipi)">${b.urines}</b><span>pipis</span></div>
+      <div class="cell"><b style="color:var(--c-pipi)">${b.urines}${goalMark(b.urines, g.urines)}</b><span>pipis</span></div>
     </div>
     <div class="bilan-extra">
-      💩 <b>${b.stools}</b> selle(s)
+      💩 <b>${b.stools}${goalMark(b.stools, g.stools)}</b> selle(s)
       &nbsp;·&nbsp; 🌡️ ${b.temps.length ? b.temps.map(t=>fmtNum(t,1)+" °C").join(" · ") : "—"}
       &nbsp;·&nbsp; ⚖️ ${b.weights.length ? b.weights.map(fmtKg).join(" · ") : "—"}
-      ${b.vitd ? " &nbsp;·&nbsp; ☀️ vit. D ✓" : ""}
+      &nbsp;·&nbsp; ${vitTxt}
       ${b.incomplete ? `<br>⚠️ <b>${b.incomplete}</b> entrée(s) à compléter` : ""}
+      ${!isToday ? `<br><a onclick="goToToday()" style="color:var(--accent); font-weight:700; cursor:pointer">↩ Revenir à aujourd'hui</a>` : ""}
     </div>`;
 
   if (!list.length){
@@ -678,6 +728,20 @@ function renderJournal(){
   }).join("");
 }
 function shiftDay(d){ curDay = shiftKey(curDay, d); renderJournal(); }
+function goToToday(){ curDay = dayKeyOf(new Date()); renderJournal(); }
+
+/* ---------- Synchronisation temps réel entre appareils ---------- */
+let rtStarted = false, rtTimer = null;
+function startRealtime(){
+  if (rtStarted || !sb) return;
+  rtStarted = true;
+  sb.channel("billie-sync")
+    .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => {
+      clearTimeout(rtTimer);
+      rtTimer = setTimeout(loadAll, 500);  // regroupe les changements rapprochés
+    })
+    .subscribe();
+}
 
 /* ---------- Composeur ---------- */
 const SECTIONS = [
@@ -897,6 +961,11 @@ function renderSettings(){
   $("sName").value = settings.baby.name || "";
   $("sDob").value = settings.baby.dob || "";
   $("sBw").value = settings.baby.birth_weight_kg || "";
+  const g = settings.goals || {};
+  $("gFeeds").value = g.feeds ?? "";
+  $("gDrunk").value = g.drunk_ml ?? "";
+  $("gUrines").value = g.urines ?? "";
+  $("gStools").value = g.stools ?? "";
   const rules = sortedRules();
   $("rulesList").innerHTML = rules.map((r,i) => `
     <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px dashed var(--line)">
@@ -914,6 +983,15 @@ async function saveBaby(){
     birth_weight_kg: numOrNull($("sBw").value)
   });
   renderAll(); alert("Enregistré ✓");
+}
+async function saveGoals(){
+  await saveSetting("goals", {
+    feeds: numOrNull($("gFeeds").value),
+    drunk_ml: numOrNull($("gDrunk").value),
+    urines: numOrNull($("gUrines").value),
+    stools: numOrNull($("gStools").value)
+  });
+  renderAll(); alert("Objectifs enregistrés ✓");
 }
 async function addRule(){
   const from = $("ruleFrom").value;
@@ -982,11 +1060,20 @@ function printReport(){
     const list = dayEvents(key);
     const b = computeBilan(list);
     const rule = ruleFor(key);
+    const g = settings.goals || {};
+    const obj = (txt, v, goal) => goal!=null ? `${txt} / obj. ${goal}${v>=goal?" ✓":""}` : `${txt}`;
+    const items = [
+      [obj(String(b.feeds), b.feeds, g.feeds), "tétées"],
+      [obj(`${fmtNum(b.drunk)} mL${b.drunkUnk?` (+${b.drunkUnk} ?)`:""}`, b.drunk, g.drunk_ml), "compléments bus"],
+      [`${fmtNum(b.pumped)} mL${b.pumpUnk?` (+${b.pumpUnk} ?)`:""}`, "lait tiré"],
+      [obj(`${b.urines}${b.urineG?` (${b.urineG} g pesés)`:""}`, b.urines, g.urines), "pipis"],
+      [obj(String(b.stools), b.stools, g.stools), "selles"],
+      [b.temps.length ? b.temps.map(t=>fmtNum(t,1)).join(" / ")+" °C" : "—", "températures"],
+      [b.weights.length ? b.weights.map(fmtKg).join(" / ") : "—", "poids"],
+      [b.vitd ? "✓ donnée" : "—", "vitamine D"]
+    ];
     html += `<div class="day"><h2>${fmtDayKey(key).toUpperCase()} <span style="font-weight:400">(journée ${rule.startHour} h → ${rule.startHour} h)</span></h2>
-      <div class="pbilan"><b>Bilan :</b> ${b.feeds} tétée(s) · ${fmtNum(b.drunk)} mL de complément bus${b.drunkUnk?` (+${b.drunkUnk} inconnu)`:""} ·
-      ${fmtNum(b.pumped)} mL tirés${b.pumpUnk?` (+${b.pumpUnk} inconnu)`:""} · ${b.urines} pipi(s)${b.urineG?` (${b.urineG} g pesés)`:""} ·
-      ${b.stools} selle(s) · T° : ${b.temps.length?b.temps.map(t=>fmtNum(t,1)).join(" / ")+" °C":"—"} ·
-      Poids : ${b.weights.length?b.weights.map(fmtKg).join(" / "):"—"}${b.vitd?" · Vit. D ✓":""}</div>
+      <div class="pbilan">${items.map(([v,l])=>`<div><b>${v}</b><span>${l}</span></div>`).join("")}</div>
       <table><tr><th style="width:44px">Heure</th><th>Tétée</th><th>Complément</th><th>Tire-lait</th><th>Pipi</th><th>Selles</th><th>T° / Poids</th><th>Remarque</th></tr>`;
     for (const e of list){
       const feed = e.feeding ? [
