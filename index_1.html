@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#8B7ED8">
+<title>Billie — Suivi</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root{
+    --bg:#F4F3F8; --card:#FFFFFF; --ink:#2E2749; --muted:#7C7692;
+    --line:#E6E3F0; --accent:#8B7ED8; --accent-ink:#FFFFFF;
+    --c-tetee:#D95F80; --c-compl:#D97F42; --c-tire:#7A6CD1; --c-pipi:#3F92C9;
+    --c-caca:#A67B3F; --c-temp:#C94F4F; --c-poids:#2F9A73; --c-vitd:#C79523;
+    --warn:#B8860B; --warn-bg:#FFF6DE;
+    --shadow:0 1px 3px rgba(46,39,73,.08),0 4px 14px rgba(46,39,73,.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#171331; --card:#221D44; --ink:#EFEBFA; --muted:#A39CC7;
+      --line:#37305E; --accent:#9A8DE8; --accent-ink:#171331;
+      --c-tetee:#E97C9B; --c-compl:#E8965C; --c-tire:#9A8DE8; --c-pipi:#5FAEE0;
+      --c-caca:#C29657; --c-temp:#E06A6A; --c-poids:#4CBD92; --c-vitd:#E0B23E;
+      --warn:#E0B23E; --warn-bg:#332B12;
+      --shadow:0 1px 3px rgba(0,0,0,.35);
+    }
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0; padding:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:ui-rounded,"SF Pro Rounded",-apple-system,"Segoe UI",system-ui,sans-serif;
+    font-size:16px; line-height:1.45;
+    padding-bottom:calc(84px + env(safe-area-inset-bottom));
+  }
+  button,input,select,textarea{font:inherit; color:inherit}
+  h1,h2,h3{margin:0}
+  .screen{max-width:560px; margin:0 auto; padding:16px}
+  .card{background:var(--card); border-radius:18px; box-shadow:var(--shadow); padding:16px; margin-bottom:14px}
+  .muted{color:var(--muted)}
+  .small{font-size:13px}
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    border:none; border-radius:14px; padding:13px 18px; font-weight:700; cursor:pointer;
+    background:var(--accent); color:var(--accent-ink); width:100%;
+  }
+  .btn.secondary{background:transparent; color:var(--accent); border:2px solid var(--accent)}
+  .btn.danger{background:transparent; color:var(--c-temp); border:2px solid var(--c-temp)}
+  .btn.slim{width:auto; padding:9px 14px; font-size:14px}
+  .field{margin-bottom:12px}
+  .field label{display:block; font-size:13px; font-weight:700; color:var(--muted); margin-bottom:5px}
+  .field input,.field select,.field textarea{
+    width:100%; border:1.5px solid var(--line); background:var(--bg);
+    border-radius:12px; padding:11px 12px; outline:none;
+  }
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent)}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  .row3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px}
+
+  /* ---------- En-tête ---------- */
+  header.app{
+    position:sticky; top:0; z-index:20; background:var(--bg);
+    padding:calc(10px + env(safe-area-inset-top)) 16px 8px;
+  }
+  .head-inner{max-width:560px; margin:0 auto}
+  .head-top{display:flex; align-items:baseline; justify-content:space-between}
+  .baby-name{font-size:26px; font-weight:800; letter-spacing:.2px}
+  .pct{font-weight:800; color:var(--c-poids); font-size:15px}
+  .timers{display:flex; gap:14px; margin-top:2px; font-size:13px; color:var(--muted)}
+  .timers b{color:var(--ink)}
+  .syncbar{margin-top:6px; font-size:12px; color:var(--warn); background:var(--warn-bg);
+    border-radius:10px; padding:6px 10px; display:none}
+
+  /* ---------- Navigation ---------- */
+  nav.tabs{
+    position:fixed; left:0; right:0; bottom:0; z-index:30;
+    background:var(--card); border-top:1px solid var(--line);
+    padding:6px 8px calc(6px + env(safe-area-inset-bottom));
+    display:flex; justify-content:space-around; align-items:center;
+  }
+  nav.tabs button{
+    background:none; border:none; color:var(--muted); font-size:11px; font-weight:700;
+    display:flex; flex-direction:column; align-items:center; gap:2px; padding:4px 10px; cursor:pointer;
+  }
+  nav.tabs button.active{color:var(--accent)}
+  nav.tabs button .ico{font-size:21px; line-height:1}
+  #addBtn{
+    background:var(--accent); color:var(--accent-ink); border-radius:50%;
+    width:58px; height:58px; font-size:30px; font-weight:800; border:none;
+    margin-top:-26px; box-shadow:var(--shadow); cursor:pointer; flex-direction:row;
+  }
+
+  /* ---------- Journal ---------- */
+  .daynav{display:flex; align-items:center; justify-content:space-between; margin:4px 0 12px}
+  .daynav button{background:var(--card); border:1px solid var(--line); border-radius:12px;
+    width:42px; height:42px; font-size:19px; cursor:pointer; color:var(--ink)}
+  .daynav .title{text-align:center}
+  .daynav .title b{font-size:17px; display:block; text-transform:capitalize}
+  .bilan{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; text-align:center}
+  .bilan .cell b{display:block; font-size:19px}
+  .bilan .cell span{font-size:11.5px; color:var(--muted); font-weight:700}
+  .bilan .cell{padding:4px 0}
+  .bilan-extra{margin-top:10px; padding-top:10px; border-top:1px dashed var(--line);
+    font-size:13.5px; color:var(--muted)}
+  .bilan-extra b{color:var(--ink)}
+
+  .timeline{position:relative; padding-left:4px}
+  .entry{
+    display:flex; gap:12px; background:var(--card); border-radius:16px; box-shadow:var(--shadow);
+    padding:12px 14px; margin-bottom:10px; cursor:pointer; align-items:flex-start;
+  }
+  .entry.incomplete{border:2px solid var(--warn)}
+  .entry .when{font-weight:800; font-size:15px; min-width:52px; padding-top:1px}
+  .entry .what{flex:1}
+  .tags{display:flex; flex-wrap:wrap; gap:6px}
+  .tag{
+    font-size:13px; font-weight:700; padding:3px 9px; border-radius:999px;
+    color:#fff; display:inline-flex; align-items:center; gap:4px;
+  }
+  .tag.warn{background:var(--warn)}
+  .entry .note{font-size:13.5px; color:var(--muted); margin-top:6px}
+  .empty{padding:36px 10px; text-align:center; color:var(--muted)}
+
+  /* ---------- Composeur ---------- */
+  #composer{
+    position:fixed; inset:0; z-index:50; background:rgba(20,16,40,.45); display:none;
+  }
+  #composer.open{display:block}
+  .sheet{
+    position:absolute; left:0; right:0; bottom:0; max-height:92%; overflow-y:auto;
+    background:var(--card); border-radius:22px 22px 0 0; padding:18px 16px calc(20px + env(safe-area-inset-bottom));
+    max-width:560px; margin:0 auto;
+  }
+  .sheet h2{font-size:19px; margin-bottom:12px}
+  .chips{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px}
+  .chip{
+    border:2px solid var(--line); background:var(--bg); border-radius:999px;
+    padding:9px 14px; font-weight:700; font-size:14.5px; cursor:pointer; color:var(--ink);
+  }
+  .chip.on{color:#fff; border-color:transparent}
+  .seg{display:flex; border:1.5px solid var(--line); border-radius:12px; overflow:hidden}
+  .seg button{flex:1; border:none; background:var(--bg); padding:11px 4px; font-weight:700; cursor:pointer; color:var(--muted)}
+  .seg button.on{background:var(--accent); color:var(--accent-ink)}
+  .section{border-top:1px dashed var(--line); padding-top:12px; margin-top:12px; display:none}
+  .section.on{display:block}
+  .section h3{font-size:14px; margin-bottom:10px; display:flex; align-items:center; gap:7px}
+  .dot{width:11px; height:11px; border-radius:50%}
+  .checkline{display:flex; align-items:center; gap:9px; font-size:14.5px; font-weight:600; margin:8px 0}
+  .checkline input{width:20px; height:20px; accent-color:var(--accent)}
+  .composer-actions{display:flex; gap:10px; margin-top:16px}
+
+  /* ---------- Poids ---------- */
+  .wstats{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; text-align:center; margin-bottom:6px}
+  .wstats b{display:block; font-size:17px}
+  .wstats span{font-size:11.5px; color:var(--muted); font-weight:700}
+  svg text{font-family:inherit}
+
+  /* ---------- Impression ---------- */
+  #printArea{display:none}
+  @media print{
+    body{background:#fff; color:#111; padding:0}
+    header.app,nav.tabs,#appMain,#composer,.screen{display:none !important}
+    #printArea{display:block; font-size:12px}
+    #printArea h1{font-size:19px; margin:0 0 2px}
+    #printArea h2{font-size:14px; margin:14px 0 4px; border-bottom:1.5px solid #333; padding-bottom:2px}
+    #printArea .phead{margin-bottom:8px}
+    #printArea table{width:100%; border-collapse:collapse; margin-top:4px}
+    #printArea th,#printArea td{border:1px solid #999; padding:3px 5px; text-align:left; vertical-align:top}
+    #printArea th{background:#eee}
+    #printArea .pbilan{margin:4px 0 2px; padding:6px 8px; background:#f2f2f2; border:1px solid #999}
+    #printArea .day{page-break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+
+<!-- ========== Écran 1 : configuration Supabase ========== -->
+<div id="setupScreen" class="screen" style="display:none">
+  <div class="card" style="margin-top:24px">
+    <h1 style="font-size:24px">👶 Suivi de Billie</h1>
+    <p class="muted small">Première ouverture sur cet appareil : colle ici les deux clés de ton projet Supabase (voir le guide, étape 2). À ne faire qu'une seule fois par téléphone.</p>
+    <div class="field"><label>URL du projet Supabase</label>
+      <input id="cfgUrl" placeholder="https://xxxx.supabase.co" autocapitalize="off" autocorrect="off"></div>
+    <div class="field"><label>Clé publique (anon / publishable key)</label>
+      <input id="cfgKey" placeholder="eyJhbGciOi… ou sb_publishable_…" autocapitalize="off" autocorrect="off"></div>
+    <button class="btn" onclick="saveConfig()">Enregistrer</button>
+    <p id="cfgErr" class="small" style="color:var(--c-temp)"></p>
+  </div>
+</div>
+
+<!-- ========== Écran 2 : connexion ========== -->
+<div id="loginScreen" class="screen" style="display:none">
+  <div class="card" style="margin-top:24px">
+    <h1 style="font-size:24px">👶 Suivi de Billie</h1>
+    <p class="muted small">Connecte-toi avec le compte partagé créé dans Supabase.</p>
+    <div class="field"><label>E-mail</label><input id="loginEmail" type="email" autocapitalize="off"></div>
+    <div class="field"><label>Mot de passe</label><input id="loginPass" type="password"></div>
+    <button class="btn" onclick="doLogin()">Se connecter</button>
+    <p id="loginErr" class="small" style="color:var(--c-temp)"></p>
+    <button class="btn secondary slim" style="margin-top:14px" onclick="resetConfig()">Changer de serveur</button>
+  </div>
+</div>
+
+<!-- ========== Application ========== -->
+<header class="app" id="appHeader" style="display:none">
+  <div class="head-inner">
+    <div class="head-top">
+      <div class="baby-name" id="hName">Billie</div>
+      <div class="pct" id="hPct"></div>
+    </div>
+    <div class="timers" id="hTimers"></div>
+    <div class="syncbar" id="syncBar"></div>
+  </div>
+</header>
+
+<main id="appMain" class="screen" style="display:none">
+  <!-- Journal -->
+  <section id="tab-journal">
+    <div class="daynav">
+      <button onclick="shiftDay(-1)">‹</button>
+      <div class="title"><b id="dayTitle"></b><span class="small muted" id="daySub"></span></div>
+      <button onclick="shiftDay(1)">›</button>
+    </div>
+    <div class="card" id="bilanCard"></div>
+    <div class="timeline" id="entriesList"></div>
+  </section>
+
+  <!-- Poids -->
+  <section id="tab-poids" style="display:none">
+    <div class="card">
+      <div class="wstats" id="wStats"></div>
+    </div>
+    <div class="card" id="wChartCard"></div>
+    <button class="btn" onclick="openComposer(null,'poids')">＋ Ajouter une pesée</button>
+  </section>
+
+  <!-- Export -->
+  <section id="tab-export" style="display:none">
+    <div class="card">
+      <h2 style="font-size:18px; margin-bottom:8px">🖨️ Vue sage-femme</h2>
+      <p class="muted small">Génère un récapitulatif propre (bilan + tableau chronologique + poids), à imprimer ou enregistrer en PDF depuis l'iPhone (Partager → Imprimer, ou directement AirPrint).</p>
+      <div class="field"><label>Période</label>
+        <select id="printScope">
+          <option value="day">Journée affichée dans le journal</option>
+          <option value="3">Les 3 derniers jours</option>
+          <option value="7">Les 7 derniers jours</option>
+          <option value="all">Tout depuis le début</option>
+        </select></div>
+      <button class="btn" onclick="printReport()">Générer et imprimer / PDF</button>
+    </div>
+    <div class="card">
+      <h2 style="font-size:18px; margin-bottom:8px">💾 Sauvegardes</h2>
+      <p class="muted small">À faire régulièrement : télécharge une copie de toutes les données.</p>
+      <div class="row2">
+        <button class="btn secondary" onclick="exportCSV()">Export CSV</button>
+        <button class="btn secondary" onclick="exportJSON()">Sauvegarde JSON</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Réglages -->
+  <section id="tab-reglages" style="display:none">
+    <div class="card">
+      <h2 style="font-size:18px; margin-bottom:10px">👶 Bébé</h2>
+      <div class="field"><label>Prénom</label><input id="sName"></div>
+      <div class="row2">
+        <div class="field"><label>Date de naissance</label><input id="sDob" type="date"></div>
+        <div class="field"><label>Poids de naissance (kg)</label><input id="sBw" type="number" step="0.005" inputmode="decimal"></div>
+      </div>
+      <button class="btn slim" onclick="saveBaby()">Enregistrer</button>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:18px; margin-bottom:6px">🕙 Début de journée</h2>
+      <p class="muted small">Une « journée » de suivi commence actuellement à l'heure indiquée. Pour passer de 10 h à minuit, ajoute une nouvelle règle avec sa date d'entrée en vigueur : l'historique reste calculé avec l'ancienne règle.</p>
+      <div id="rulesList"></div>
+      <div class="row2" style="margin-top:8px">
+        <div class="field"><label>À partir du</label><input id="ruleFrom" type="date"></div>
+        <div class="field"><label>Début de journée</label>
+          <select id="ruleHour"><option value="0">00 h (minuit)</option><option value="10" selected>10 h</option>
+          <option value="6">06 h</option><option value="7">07 h</option><option value="8">08 h</option></select></div>
+      </div>
+      <button class="btn slim" onclick="addRule()">Ajouter la règle</button>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:18px; margin-bottom:6px">📥 Historique initial</h2>
+      <p class="muted small">Importe en une fois toutes les données déjà notées à la main : courbe de poids depuis la naissance + journées des 9, 10 et 11 juillet.</p>
+      <button class="btn secondary" id="seedBtn" onclick="importSeed()">Importer l'historique de Billie</button>
+    </div>
+
+    <div class="card">
+      <button class="btn danger" onclick="doLogout()">Se déconnecter</button>
+    </div>
+  </section>
+</main>
+
+<nav class="tabs" id="appNav" style="display:none">
+  <button data-tab="journal" class="active" onclick="showTab('journal')"><span class="ico">📖</span>Journal</button>
+  <button data-tab="poids" onclick="showTab('poids')"><span class="ico">📈</span>Poids</button>
+  <button id="addBtn" onclick="openComposer()">＋</button>
+  <button data-tab="export" onclick="showTab('export')"><span class="ico">🖨️</span>Export</button>
+  <button data-tab="reglages" onclick="showTab('reglages')"><span class="ico">⚙️</span>Réglages</button>
+</nav>
+
+<!-- ========== Composeur d'entrée ========== -->
+<div id="composer">
+  <div class="sheet">
+    <h2 id="compTitle">Nouvelle entrée</h2>
+    <div class="field"><label>Heure</label><input id="fTime" type="datetime-local"></div>
+
+    <div class="chips" id="chipRow"></div>
+
+    <div class="section" data-sec="tetee">
+      <h3><span class="dot" style="background:var(--c-tetee)"></span>Tétée</h3>
+      <div class="field"><label>Sein(s)</label>
+        <div class="seg" id="segBreasts">
+          <button data-v="gauche">Gauche</button><button data-v="droit">Droit</button><button data-v="deux">Les deux</button>
+        </div></div>
+      <div class="row2">
+        <div class="field"><label>Durée (min)</label><input id="fDur" type="number" inputmode="numeric" placeholder="—"></div>
+        <div class="field"><label>Qualité</label>
+          <select id="fQual"><option value="">—</option><option>pas top</option><option>correcte</option><option>très bonne</option></select></div>
+      </div>
+      <div class="checkline"><input type="checkbox" id="fShield"><label for="fShield" style="all:unset">Avec téterelle</label></div>
+    </div>
+
+    <div class="section" data-sec="compl">
+      <h3><span class="dot" style="background:var(--c-compl)"></span>Complément (biberon)</h3>
+      <div class="row2">
+        <div class="field"><label>Présenté (mL)</label><input id="fOff" type="number" inputmode="numeric" placeholder="—"></div>
+        <div class="field"><label>Bu (mL)</label><input id="fDrunk" type="number" inputmode="numeric" placeholder="—"></div>
+      </div>
+      <div class="checkline"><input type="checkbox" id="fDrunkUnk"><label for="fDrunkUnk" style="all:unset">Quantité bue à compléter plus tard</label></div>
+    </div>
+
+    <div class="section" data-sec="tire">
+      <h3><span class="dot" style="background:var(--c-tire)"></span>Tire-lait</h3>
+      <div class="field"><label>Quantité tirée (mL)</label><input id="fPump" type="number" inputmode="numeric" placeholder="—"></div>
+      <div class="checkline"><input type="checkbox" id="fPumpUnk"><label for="fPumpUnk" style="all:unset">Quantité à compléter plus tard</label></div>
+    </div>
+
+    <div class="section" data-sec="pipi">
+      <h3><span class="dot" style="background:var(--c-pipi)"></span>Pipi</h3>
+      <div class="row2">
+        <div class="field"><label>Taille</label>
+          <div class="seg" id="segUrine">
+            <button data-v="petit">Petit</button><button data-v="normal">Normal</button><button data-v="gros">Gros</button>
+          </div></div>
+        <div class="field"><label>Pesée couche (g)</label><input id="fUw" type="number" inputmode="numeric" placeholder="—"></div>
+      </div>
+    </div>
+
+    <div class="section" data-sec="caca">
+      <h3><span class="dot" style="background:var(--c-caca)"></span>Caca</h3>
+      <div class="field"><label>Description</label><input id="fStool" placeholder="ex. jaune moutarde, petit…"></div>
+    </div>
+
+    <div class="section" data-sec="temp">
+      <h3><span class="dot" style="background:var(--c-temp)"></span>Température</h3>
+      <div class="field"><label>°C</label><input id="fTemp" type="number" step="0.1" inputmode="decimal" placeholder="36,8"></div>
+    </div>
+
+    <div class="section" data-sec="poids">
+      <h3><span class="dot" style="background:var(--c-poids)"></span>Poids</h3>
+      <div class="field"><label>kg</label><input id="fWeight" type="number" step="0.005" inputmode="decimal" placeholder="3,185"></div>
+    </div>
+
+    <div class="section" data-sec="vitd">
+      <h3><span class="dot" style="background:var(--c-vitd)"></span>Vitamine D</h3>
+      <p class="muted small" style="margin:0">Sera notée comme donnée à l'heure indiquée.</p>
+    </div>
+
+    <div class="section on" data-sec="note" style="border-top:none; margin-top:4px; padding-top:8px">
+      <div class="field"><label>Remarque (optionnel)</label><textarea id="fNote" rows="2" placeholder="ex. très bonne tétée, s'est endormie…"></textarea></div>
+    </div>
+
+    <div class="composer-actions">
+      <button class="btn secondary" onclick="closeComposer()">Annuler</button>
+      <button class="btn" id="saveBtn" onclick="saveEntry()">Enregistrer</button>
+    </div>
+    <button class="btn danger" id="deleteBtn" style="margin-top:10px; display:none" onclick="deleteEntry()">Supprimer cette entrée</button>
+  </div>
+</div>
+
+<div id="printArea"></div>
+
+<script>
+"use strict";
+/* ============================================================
+   Suivi de Billie — application monofichier
+   Données : Supabase (tables events + settings)
+   ============================================================ */
+
+const LS_CFG = "billie_cfg";
+const LS_QUEUE = "billie_queue";
+
+let sb = null;
+let events = [];               // toutes les entrées, triées par ts croissant
+let settings = {
+  baby: { name: "Billie", dob: "2026-06-12", birth_weight_kg: 3.345, birth_height_cm: 48 },
+  day_rules: [{ from: "2026-06-12", startHour: 10 }],
+  seed_done: false
+};
+let curDay = null;             // clé de journée affichée (YYYY-MM-DD)
+let editingId = null;          // id de l'entrée en cours d'édition
+let lastLoad = 0;
+
+/* ---------- Petites aides ---------- */
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2, "0");
+const localDateStr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const fmtTime = d => `${pad(d.getHours())}h${pad(d.getMinutes())}`;
+const fmtNum = (n, dec=0) => n==null ? "—" : Number(n).toLocaleString("fr-BE",{minimumFractionDigits:dec, maximumFractionDigits:dec});
+const fmtKg = n => n==null ? "—" : Number(n).toLocaleString("fr-BE",{minimumFractionDigits:3, maximumFractionDigits:3}) + " kg";
+const JOURS = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"];
+const MOIS = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+function fmtDayKey(key){
+  const [y,m,d] = key.split("-").map(Number);
+  const dt = new Date(y, m-1, d);
+  return `${JOURS[dt.getDay()]} ${d} ${MOIS[m-1]}`;
+}
+function toLocalInput(d){
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function esc(s){ return String(s??"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+/* ---------- Journée logique (10h→10h, configurable) ---------- */
+function sortedRules(){
+  return [...(settings.day_rules||[])].sort((a,b)=> a.from < b.from ? -1 : 1);
+}
+function ruleFor(dateStr){
+  let r = { startHour: 10 };
+  for (const rule of sortedRules()) if (rule.from <= dateStr) r = rule;
+  return r;
+}
+function dayKeyOf(ts){
+  const d = new Date(ts);
+  const rule = ruleFor(localDateStr(d));
+  const shifted = new Date(d.getTime() - rule.startHour*3600e3);
+  return localDateStr(shifted);
+}
+function shiftKey(key, delta){
+  const [y,m,dd] = key.split("-").map(Number);
+  const d = new Date(y, m-1, dd + delta);
+  return localDateStr(d);
+}
+
+/* ---------- Configuration & authentification ---------- */
+function getCfg(){ try{ return JSON.parse(localStorage.getItem(LS_CFG)); }catch(e){ return null; } }
+function saveConfig(){
+  const url = $("cfgUrl").value.trim().replace(/\/+$/,"");
+  const key = $("cfgKey").value.trim();
+  if (!/^https:\/\/.+supabase\.co$/.test(url) || key.length < 20){
+    $("cfgErr").textContent = "Vérifie l'URL (https://…supabase.co) et la clé."; return;
+  }
+  localStorage.setItem(LS_CFG, JSON.stringify({url, key}));
+  location.reload();
+}
+function resetConfig(){
+  if (confirm("Effacer la configuration du serveur sur cet appareil ?")){
+    localStorage.removeItem(LS_CFG); location.reload();
+  }
+}
+async function doLogin(){
+  $("loginErr").textContent = "";
+  const { error } = await sb.auth.signInWithPassword({
+    email: $("loginEmail").value.trim(), password: $("loginPass").value
+  });
+  if (error){ $("loginErr").textContent = "Connexion impossible : " + error.message; return; }
+  show("app"); await loadAll();
+}
+async function doLogout(){ await sb.auth.signOut(); location.reload(); }
+
+function show(which){
+  $("setupScreen").style.display = which==="setup" ? "" : "none";
+  $("loginScreen").style.display = which==="login" ? "" : "none";
+  const app = which==="app" ? "" : "none";
+  $("appHeader").style.display = app;
+  $("appMain").style.display = app;
+  $("appNav").style.display = which==="app" ? "flex" : "none";
+}
+
+async function init(){
+  const cfg = getCfg();
+  if (!cfg){ show("setup"); return; }
+  sb = window.supabase.createClient(cfg.url, cfg.key);
+  const { data:{ session } } = await sb.auth.getSession();
+  if (!session){ show("login"); return; }
+  show("app");
+  await loadAll();
+}
+
+/* ---------- Chargement des données ---------- */
+async function loadAll(){
+  try{
+    const [ev, st] = await Promise.all([
+      sb.from("events").select("*").order("ts", {ascending:true}).limit(20000),
+      sb.from("settings").select("*")
+    ]);
+    if (ev.error) throw ev.error;
+    events = ev.data || [];
+    for (const row of (st.data||[])) settings[row.key] = row.value;
+    if (!settings.day_rules || !settings.day_rules.length)
+      settings.day_rules = [{from: settings.baby.dob || "2026-06-12", startHour:10}];
+    lastLoad = Date.now();
+    if (!curDay) curDay = dayKeyOf(new Date());
+    await trySyncQueue();
+    renderAll();
+  }catch(e){
+    console.error(e);
+    alert("Impossible de charger les données (connexion ?). Réessaie dans un instant.");
+  }
+}
+async function saveSetting(key, value){
+  settings[key] = value;
+  const { error } = await sb.from("settings").upsert({ key, value, updated_at: new Date().toISOString() });
+  if (error) alert("Enregistrement du réglage impossible : " + error.message);
+}
+
+/* ---------- File d'attente hors-ligne ---------- */
+function getQueue(){ try{ return JSON.parse(localStorage.getItem(LS_QUEUE)) || []; }catch(e){ return []; } }
+function setQueue(q){ localStorage.setItem(LS_QUEUE, JSON.stringify(q)); updateSyncBar(); }
+function updateSyncBar(){
+  const q = getQueue();
+  const bar = $("syncBar");
+  if (q.length){ bar.style.display = "block"; bar.textContent = `⏳ ${q.length} entrée(s) en attente de synchronisation — elles partiront dès que la connexion revient.`; }
+  else bar.style.display = "none";
+}
+async function trySyncQueue(){
+  let q = getQueue();
+  if (!q.length) return;
+  const rest = [];
+  for (const row of q){
+    const { error } = await sb.from("events").insert(row);
+    if (error) rest.push(row);
+  }
+  setQueue(rest);
+  if (rest.length < q.length){
+    const { data } = await sb.from("events").select("*").order("ts",{ascending:true}).limit(20000);
+    if (data) events = data;
+  }
+}
+
+/* ---------- Onglets ---------- */
+function showTab(name){
+  for (const s of ["journal","poids","export","reglages"])
+    $("tab-"+s).style.display = s===name ? "" : "none";
+  document.querySelectorAll("nav.tabs button[data-tab]").forEach(b =>
+    b.classList.toggle("active", b.dataset.tab===name));
+  if (name==="poids") renderWeight();
+  if (name==="reglages") renderSettings();
+}
+
+/* ---------- Rendu global ---------- */
+function renderAll(){
+  $("hName").textContent = settings.baby.name || "Billie";
+  renderHeader(); renderJournal(); renderWeight(); renderSettings(); updateSyncBar();
+}
+
+function lastWeight(){
+  const w = events.filter(e => e.weight_kg != null);
+  return w.length ? w[w.length-1] : null;
+}
+function renderHeader(){
+  const bw = Number(settings.baby.birth_weight_kg);
+  const lw = lastWeight();
+  $("hPct").textContent = (lw && bw) ? `${(lw.weight_kg/bw*100).toFixed(1).replace(".",",")} % du poids de naissance` : "";
+  const now = Date.now();
+  const ago = ts => {
+    const m = Math.floor((now - new Date(ts).getTime())/60000);
+    if (m < 1) return "à l'instant";
+    if (m < 60) return `il y a ${m} min`;
+    return `il y a ${Math.floor(m/60)} h ${pad(m%60)}`;
+  };
+  const lastFeed = [...events].reverse().find(e => e.feeding);
+  const lastSupp = [...events].reverse().find(e => e.supplement);
+  let html = "";
+  if (lastFeed) html += `<span>🤱 Tétée <b>${ago(lastFeed.ts)}</b></span>`;
+  if (lastSupp) html += `<span>🍼 Complément <b>${ago(lastSupp.ts)}</b></span>`;
+  $("hTimers").innerHTML = html || `<span class="muted">Aucune entrée pour l'instant</span>`;
+}
+setInterval(renderHeader, 60000);
+
+/* ---------- Journal ---------- */
+function dayEvents(key){
+  return events.filter(e => dayKeyOf(e.ts) === key)
+               .sort((a,b)=> new Date(a.ts) - new Date(b.ts));
+}
+function computeBilan(list){
+  const b = { feeds:0, drunk:0, drunkUnk:0, pumped:0, pumpUnk:0, urines:0, urineG:0,
+              stools:0, temps:[], weights:[], vitd:0, incomplete:0 };
+  for (const e of list){
+    if (e.feeding) b.feeds++;
+    if (e.supplement){
+      if (e.supplement_drunk_ml != null) b.drunk += e.supplement_drunk_ml; else b.drunkUnk++;
+    }
+    if (e.pumping){
+      if (e.pumped_ml != null) b.pumped += e.pumped_ml; else b.pumpUnk++;
+    }
+    if (e.urine){ b.urines++; if (e.urine_weight_g!=null) b.urineG += e.urine_weight_g; }
+    if (e.stool) b.stools++;
+    if (e.temperature_c != null) b.temps.push(e.temperature_c);
+    if (e.weight_kg != null) b.weights.push(e.weight_kg);
+    if (e.vitamin_d) b.vitd++;
+    if (e.incomplete) b.incomplete++;
+  }
+  return b;
+}
+function renderJournal(){
+  const rule = ruleFor(curDay);
+  $("dayTitle").textContent = fmtDayKey(curDay);
+  $("daySub").textContent = rule.startHour===0
+    ? "journée de minuit à minuit"
+    : `journée de ${rule.startHour} h à ${rule.startHour} h le lendemain`;
+
+  const list = dayEvents(curDay);
+  const b = computeBilan(list);
+  const plus = n => n ? ` <span style="color:var(--warn)">+${n} ?</span>` : "";
+  $("bilanCard").innerHTML = `
+    <div class="bilan">
+      <div class="cell"><b style="color:var(--c-tetee)">${b.feeds}</b><span>tétées</span></div>
+      <div class="cell"><b style="color:var(--c-compl)">${fmtNum(b.drunk)}${plus(b.drunkUnk)}</b><span>mL bus</span></div>
+      <div class="cell"><b style="color:var(--c-tire)">${fmtNum(b.pumped)}${plus(b.pumpUnk)}</b><span>mL tirés</span></div>
+      <div class="cell"><b style="color:var(--c-pipi)">${b.urines}</b><span>pipis</span></div>
+    </div>
+    <div class="bilan-extra">
+      💩 <b>${b.stools}</b> selle(s)
+      &nbsp;·&nbsp; 🌡️ ${b.temps.length ? b.temps.map(t=>fmtNum(t,1)+" °C").join(" · ") : "—"}
+      &nbsp;·&nbsp; ⚖️ ${b.weights.length ? b.weights.map(fmtKg).join(" · ") : "—"}
+      ${b.vitd ? " &nbsp;·&nbsp; ☀️ vit. D ✓" : ""}
+      ${b.incomplete ? `<br>⚠️ <b>${b.incomplete}</b> entrée(s) à compléter` : ""}
+    </div>`;
+
+  if (!list.length){
+    $("entriesList").innerHTML = `<div class="empty">Aucune entrée pour cette journée.<br>Appuie sur ＋ pour en ajouter une.</div>`;
+    return;
+  }
+  $("entriesList").innerHTML = list.map(e => {
+    const tags = [];
+    if (e.feeding){
+      let t = "🤱 Tétée";
+      if (e.feeding_breasts) t += " · " + (e.feeding_breasts==="deux" ? "2 seins" : e.feeding_breasts);
+      if (e.feeding_duration_min) t += ` · ${e.feeding_duration_min} min`;
+      if (e.feeding_shield) t += " · téterelle";
+      if (e.feeding_quality) t += ` · ${e.feeding_quality}`;
+      tags.push(`<span class="tag" style="background:var(--c-tetee)">${t}</span>`);
+    }
+    if (e.supplement){
+      let t = "🍼 ";
+      if (e.supplement_drunk_ml != null) t += `${e.supplement_drunk_ml} mL bus`;
+      else t += "bu : ?";
+      if (e.supplement_offered_ml != null && e.supplement_offered_ml !== e.supplement_drunk_ml)
+        t += ` / ${e.supplement_offered_ml} présentés`;
+      tags.push(`<span class="tag" style="background:var(--c-compl)">${t}</span>`);
+    }
+    if (e.pumping){
+      tags.push(`<span class="tag" style="background:var(--c-tire)">🫙 Tire-lait ${e.pumped_ml!=null ? e.pumped_ml+" mL" : "?"}</span>`);
+    }
+    if (e.urine){
+      let t = "💧 Pipi";
+      if (e.urine_size && e.urine_size!=="normal") t += " " + e.urine_size;
+      if (e.urine_weight_g != null) t += ` · ${e.urine_weight_g} g`;
+      tags.push(`<span class="tag" style="background:var(--c-pipi)">${t}</span>`);
+    }
+    if (e.stool) tags.push(`<span class="tag" style="background:var(--c-caca)">💩 ${esc(e.stool_desc||"Caca")}</span>`);
+    if (e.temperature_c != null) tags.push(`<span class="tag" style="background:var(--c-temp)">🌡️ ${fmtNum(e.temperature_c,1)} °C</span>`);
+    if (e.weight_kg != null) tags.push(`<span class="tag" style="background:var(--c-poids)">⚖️ ${fmtKg(e.weight_kg)}</span>`);
+    if (e.vitamin_d) tags.push(`<span class="tag" style="background:var(--c-vitd)">☀️ Vit. D</span>`);
+    if (e.incomplete) tags.push(`<span class="tag warn">⚠️ à compléter</span>`);
+    return `<div class="entry${e.incomplete?" incomplete":""}" onclick="openComposer('${e.id}')">
+      <div class="when">${fmtTime(new Date(e.ts))}</div>
+      <div class="what"><div class="tags">${tags.join("")}</div>
+      ${e.note ? `<div class="note">${esc(e.note)}</div>` : ""}</div>
+    </div>`;
+  }).join("");
+}
+function shiftDay(d){ curDay = shiftKey(curDay, d); renderJournal(); }
+
+/* ---------- Composeur ---------- */
+const SECTIONS = [
+  {id:"tetee", label:"🤱 Tétée",       color:"var(--c-tetee)"},
+  {id:"compl", label:"🍼 Complément",  color:"var(--c-compl)"},
+  {id:"tire",  label:"🫙 Tire-lait",   color:"var(--c-tire)"},
+  {id:"pipi",  label:"💧 Pipi",        color:"var(--c-pipi)"},
+  {id:"caca",  label:"💩 Caca",        color:"var(--c-caca)"},
+  {id:"temp",  label:"🌡️ Temp.",       color:"var(--c-temp)"},
+  {id:"poids", label:"⚖️ Poids",       color:"var(--c-poids)"},
+  {id:"vitd",  label:"☀️ Vit. D",      color:"var(--c-vitd)"}
+];
+let secOn = {};
+function buildChips(){
+  $("chipRow").innerHTML = SECTIONS.map(s =>
+    `<button class="chip" id="chip-${s.id}" onclick="toggleSec('${s.id}')">${s.label}</button>`).join("");
+}
+function toggleSec(id, force){
+  secOn[id] = force!==undefined ? force : !secOn[id];
+  const chip = $("chip-"+id);
+  const sec = document.querySelector(`.section[data-sec="${id}"]`);
+  chip.classList.toggle("on", !!secOn[id]);
+  chip.style.background = secOn[id] ? SECTIONS.find(s=>s.id===id).color : "";
+  if (sec) sec.classList.toggle("on", !!secOn[id]);
+}
+function segSet(segId, val){
+  document.querySelectorAll(`#${segId} button`).forEach(b =>
+    b.classList.toggle("on", b.dataset.v === val));
+}
+function segGet(segId){
+  const on = document.querySelector(`#${segId} button.on`);
+  return on ? on.dataset.v : null;
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest(".seg button");
+  if (b){
+    const already = b.classList.contains("on");
+    b.parentElement.querySelectorAll("button").forEach(x=>x.classList.remove("on"));
+    if (!already) b.classList.add("on");
+  }
+});
+
+function openComposer(id=null, preset=null){
+  editingId = id;
+  buildChips();
+  secOn = {};
+  SECTIONS.forEach(s => toggleSec(s.id, false));
+  // Réinitialisation des champs
+  ["fDur","fOff","fDrunk","fPump","fUw","fStool","fTemp","fWeight","fNote"].forEach(k => $(k).value = "");
+  $("fQual").value = ""; $("fShield").checked = false;
+  $("fDrunkUnk").checked = false; $("fPumpUnk").checked = false;
+  segSet("segBreasts", null); segSet("segUrine", null);
+  $("deleteBtn").style.display = "none";
+  $("compTitle").textContent = "Nouvelle entrée";
+  $("fTime").value = toLocalInput(new Date());
+
+  if (id){
+    const e = events.find(x => x.id === id);
+    if (e){
+      $("compTitle").textContent = "Modifier l'entrée";
+      $("deleteBtn").style.display = "";
+      $("fTime").value = toLocalInput(new Date(e.ts));
+      if (e.feeding){ toggleSec("tetee", true); segSet("segBreasts", e.feeding_breasts);
+        $("fDur").value = e.feeding_duration_min ?? ""; $("fQual").value = e.feeding_quality ?? "";
+        $("fShield").checked = !!e.feeding_shield; }
+      if (e.supplement){ toggleSec("compl", true);
+        $("fOff").value = e.supplement_offered_ml ?? ""; $("fDrunk").value = e.supplement_drunk_ml ?? "";
+        $("fDrunkUnk").checked = e.supplement_drunk_ml == null; }
+      if (e.pumping){ toggleSec("tire", true);
+        $("fPump").value = e.pumped_ml ?? ""; $("fPumpUnk").checked = e.pumped_ml == null; }
+      if (e.urine){ toggleSec("pipi", true); segSet("segUrine", e.urine_size); $("fUw").value = e.urine_weight_g ?? ""; }
+      if (e.stool){ toggleSec("caca", true); $("fStool").value = e.stool_desc ?? ""; }
+      if (e.temperature_c != null){ toggleSec("temp", true); $("fTemp").value = e.temperature_c; }
+      if (e.weight_kg != null){ toggleSec("poids", true); $("fWeight").value = e.weight_kg; }
+      if (e.vitamin_d) toggleSec("vitd", true);
+      $("fNote").value = e.note ?? "";
+    }
+  } else if (preset){
+    toggleSec(preset, true);
+  }
+  $("composer").classList.add("open");
+}
+function closeComposer(){ $("composer").classList.remove("open"); editingId = null; }
+$("composer").addEventListener("click", e => { if (e.target.id === "composer") closeComposer(); });
+
+function numOrNull(v){ const n = parseFloat(String(v).replace(",",".")); return isNaN(n) ? null : n; }
+
+async function saveEntry(){
+  const anyOn = SECTIONS.some(s => secOn[s.id]);
+  if (!anyOn && !$("fNote").value.trim()){
+    alert("Choisis au moins un type d'événement (tétée, pipi…)."); return;
+  }
+  const t = $("fTime").value;
+  if (!t){ alert("Indique l'heure."); return; }
+  const drunkUnk = secOn.compl && $("fDrunkUnk").checked;
+  const pumpUnk = secOn.tire && $("fPumpUnk").checked;
+  const row = {
+    ts: new Date(t).toISOString(),
+    feeding: !!secOn.tetee,
+    feeding_breasts: secOn.tetee ? segGet("segBreasts") : null,
+    feeding_duration_min: secOn.tetee ? numOrNull($("fDur").value) : null,
+    feeding_shield: secOn.tetee ? $("fShield").checked : null,
+    feeding_quality: secOn.tetee ? ($("fQual").value || null) : null,
+    supplement: !!secOn.compl,
+    supplement_offered_ml: secOn.compl ? numOrNull($("fOff").value) : null,
+    supplement_drunk_ml: (secOn.compl && !drunkUnk) ? numOrNull($("fDrunk").value) : null,
+    pumping: !!secOn.tire,
+    pumped_ml: (secOn.tire && !pumpUnk) ? numOrNull($("fPump").value) : null,
+    urine: !!secOn.pipi,
+    urine_size: secOn.pipi ? segGet("segUrine") : null,
+    urine_weight_g: secOn.pipi ? numOrNull($("fUw").value) : null,
+    stool: !!secOn.caca,
+    stool_desc: secOn.caca ? ($("fStool").value.trim() || null) : null,
+    temperature_c: secOn.temp ? numOrNull($("fTemp").value) : null,
+    weight_kg: secOn.poids ? numOrNull($("fWeight").value) : null,
+    vitamin_d: !!secOn.vitd,
+    note: $("fNote").value.trim() || null,
+    incomplete: !!(drunkUnk || pumpUnk),
+    updated_at: new Date().toISOString()
+  };
+  $("saveBtn").disabled = true;
+  try{
+    if (editingId){
+      const { error } = await sb.from("events").update(row).eq("id", editingId);
+      if (error) throw error;
+      const idx = events.findIndex(e => e.id === editingId);
+      events[idx] = { ...events[idx], ...row };
+    } else {
+      const { data, error } = await sb.from("events").insert(row).select();
+      if (error) throw error;
+      events.push(data[0]);
+    }
+    events.sort((a,b)=> new Date(a.ts) - new Date(b.ts));
+    closeComposer(); renderAll();
+  }catch(err){
+    if (!editingId){
+      // Hors-ligne : on met en file d'attente, rien n'est perdu
+      const q = getQueue(); q.push(row); setQueue(q);
+      events.push({ ...row, id: "local-"+Date.now() });
+      events.sort((a,b)=> new Date(a.ts) - new Date(b.ts));
+      closeComposer(); renderAll();
+    } else {
+      alert("Modification impossible (connexion ?) : " + err.message);
+    }
+  }finally{
+    $("saveBtn").disabled = false;
+  }
+}
+async function deleteEntry(){
+  if (!editingId || !confirm("Supprimer définitivement cette entrée ?")) return;
+  const { error } = await sb.from("events").delete().eq("id", editingId);
+  if (error){ alert("Suppression impossible : " + error.message); return; }
+  events = events.filter(e => e.id !== editingId);
+  closeComposer(); renderAll();
+}
+
+/* ---------- Poids ---------- */
+function renderWeight(){
+  const bw = Number(settings.baby.birth_weight_kg) || null;
+  const pts = events.filter(e => e.weight_kg != null)
+                    .map(e => ({ t: new Date(e.ts).getTime(), w: Number(e.weight_kg) }));
+  if (!pts.length){
+    $("wStats").innerHTML = `<div class="muted" style="grid-column:1/4">Aucune pesée enregistrée.</div>`;
+    $("wChartCard").innerHTML = "";
+    return;
+  }
+  const last = pts[pts.length-1];
+  // gain moyen : depuis la pesée la plus proche d'il y a 7 jours
+  let gain = "—";
+  const ref = [...pts].reverse().find(p => p.t <= last.t - 4*86400e3) || pts[0];
+  if (ref !== last){
+    const g = (last.w - ref.w) * 1000 / ((last.t - ref.t)/86400e3);
+    gain = (g>=0?"+":"") + Math.round(g) + " g/j";
+  }
+  $("wStats").innerHTML = `
+    <div><b style="color:var(--c-poids)">${fmtKg(last.w)}</b><span>dernier poids</span></div>
+    <div><b>${bw ? (last.w/bw*100).toFixed(1).replace(".",",")+" %" : "—"}</b><span>du poids naissance</span></div>
+    <div><b>${gain}</b><span>tendance récente</span></div>`;
+
+  // Graphique SVG
+  const W=640, H=320, ml=52, mr=14, mt=16, mb=34;
+  const t0 = Math.min(...pts.map(p=>p.t)), t1 = Math.max(...pts.map(p=>p.t)) + 86400e3;
+  let wMin = Math.min(...pts.map(p=>p.w)), wMax = Math.max(...pts.map(p=>p.w));
+  if (bw){ wMin = Math.min(wMin, bw*0.885); wMax = Math.max(wMax, bw); }
+  wMin = Math.floor(wMin*20)/20 - 0.03; wMax = Math.ceil(wMax*20)/20 + 0.03;
+  const X = t => ml + (t-t0)/(t1-t0)*(W-ml-mr);
+  const Y = w => mt + (wMax-w)/(wMax-wMin)*(H-mt-mb);
+  let svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%; height:auto">`;
+  // grille horizontale tous les 100 g
+  for (let w = Math.ceil(wMin*10)/10; w <= wMax; w += 0.1){
+    const y = Y(w);
+    svg += `<line x1="${ml}" y1="${y}" x2="${W-mr}" y2="${y}" stroke="var(--line)" stroke-width="1"/>`;
+    svg += `<text x="${ml-6}" y="${y+4}" text-anchor="end" font-size="11" fill="var(--muted)">${w.toFixed(1).replace(".",",")}</text>`;
+  }
+  // repères dates (~6 étiquettes)
+  const span = t1-t0, step = Math.max(1, Math.round(span/86400e3/6))*86400e3;
+  for (let t = t0; t <= t1; t += step){
+    const d = new Date(t);
+    svg += `<text x="${X(t)}" y="${H-10}" text-anchor="middle" font-size="11" fill="var(--muted)">${pad(d.getDate())}/${pad(d.getMonth()+1)}</text>`;
+  }
+  if (bw){
+    svg += `<line x1="${ml}" y1="${Y(bw)}" x2="${W-mr}" y2="${Y(bw)}" stroke="var(--c-poids)" stroke-dasharray="6 4" stroke-width="1.5" opacity=".7"/>
+            <text x="${W-mr}" y="${Y(bw)-5}" text-anchor="end" font-size="11" fill="var(--c-poids)">poids de naissance</text>
+            <line x1="${ml}" y1="${Y(bw*0.9)}" x2="${W-mr}" y2="${Y(bw*0.9)}" stroke="var(--c-temp)" stroke-dasharray="3 4" stroke-width="1.5" opacity=".7"/>
+            <text x="${W-mr}" y="${Y(bw*0.9)-5}" text-anchor="end" font-size="11" fill="var(--c-temp)">− 10 %</text>`;
+  }
+  svg += `<path d="${pts.map((p,i)=>(i?"L":"M")+X(p.t).toFixed(1)+" "+Y(p.w).toFixed(1)).join(" ")}"
+           fill="none" stroke="var(--c-poids)" stroke-width="2.5" stroke-linejoin="round"/>`;
+  for (const p of pts)
+    svg += `<circle cx="${X(p.t).toFixed(1)}" cy="${Y(p.w).toFixed(1)}" r="4" fill="var(--c-poids)"/>`;
+  svg += `</svg>`;
+  $("wChartCard").innerHTML = `<h2 style="font-size:16px; margin-bottom:8px">Courbe de poids</h2>` + svg;
+}
+
+/* ---------- Réglages ---------- */
+function renderSettings(){
+  $("sName").value = settings.baby.name || "";
+  $("sDob").value = settings.baby.dob || "";
+  $("sBw").value = settings.baby.birth_weight_kg || "";
+  const rules = sortedRules();
+  $("rulesList").innerHTML = rules.map((r,i) => `
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px dashed var(--line)">
+      <span>À partir du <b>${r.from.split("-").reverse().join("/")}</b> : journée dès <b>${r.startHour} h</b></span>
+      ${rules.length>1 ? `<button class="btn danger slim" onclick="delRule(${i})">✕</button>` : ""}
+    </div>`).join("");
+  $("seedBtn").disabled = !!settings.seed_done;
+  $("seedBtn").textContent = settings.seed_done ? "Historique déjà importé ✓" : "Importer l'historique de Billie";
+}
+async function saveBaby(){
+  await saveSetting("baby", {
+    ...settings.baby,
+    name: $("sName").value.trim() || "Billie",
+    dob: $("sDob").value,
+    birth_weight_kg: numOrNull($("sBw").value)
+  });
+  renderAll(); alert("Enregistré ✓");
+}
+async function addRule(){
+  const from = $("ruleFrom").value;
+  const startHour = parseInt($("ruleHour").value, 10);
+  if (!from){ alert("Indique la date d'entrée en vigueur."); return; }
+  const rules = sortedRules().filter(r => r.from !== from);
+  rules.push({ from, startHour });
+  await saveSetting("day_rules", rules.sort((a,b)=> a.from < b.from ? -1 : 1));
+  renderAll();
+}
+async function delRule(i){
+  const rules = sortedRules(); rules.splice(i,1);
+  await saveSetting("day_rules", rules);
+  renderAll();
+}
+
+/* ---------- Export CSV / JSON ---------- */
+function download(name, content, mime){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([content], {type:mime}));
+  a.download = name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+}
+function exportCSV(){
+  const cols = ["ts","feeding","feeding_breasts","feeding_duration_min","feeding_shield","feeding_quality",
+    "supplement_offered_ml","supplement_drunk_ml","pumped_ml","urine","urine_size","urine_weight_g",
+    "stool","stool_desc","temperature_c","weight_kg","vitamin_d","note","incomplete"];
+  const lines = [cols.join(";")];
+  for (const e of events)
+    lines.push(cols.map(c => {
+      let v = e[c]; if (v==null) v="";
+      v = String(v).replace(/"/g,'""');
+      return /[;"\n]/.test(v) ? `"${v}"` : v;
+    }).join(";"));
+  download(`billie-export-${localDateStr(new Date())}.csv`, "\uFEFF"+lines.join("\n"), "text/csv;charset=utf-8");
+}
+function exportJSON(){
+  download(`billie-sauvegarde-${localDateStr(new Date())}.json`,
+    JSON.stringify({settings, events}, null, 1), "application/json");
+}
+
+/* ---------- Vue sage-femme (impression) ---------- */
+function printReport(){
+  const scope = $("printScope").value;
+  let keys;
+  const allKeys = [...new Set(events.map(e => dayKeyOf(e.ts)))].sort();
+  if (scope === "day") keys = [curDay];
+  else if (scope === "all") keys = allKeys;
+  else keys = allKeys.slice(-parseInt(scope,10));
+  keys = keys.filter(k => dayEvents(k).length);
+  if (!keys.length){ alert("Aucune donnée pour cette période."); return; }
+
+  const bw = Number(settings.baby.birth_weight_kg);
+  const lw = lastWeight();
+  const baby = settings.baby;
+  let html = `<div class="phead">
+    <h1>Suivi de ${esc(baby.name)} — récapitulatif</h1>
+    <div>Née le ${baby.dob ? baby.dob.split("-").reverse().join("/") : "—"} ·
+      poids de naissance ${fmtKg(bw)} ·
+      dernier poids <b>${lw ? fmtKg(lw.weight_kg) : "—"}</b>
+      ${lw && bw ? `(${(lw.weight_kg/bw*100).toFixed(1).replace(".",",")} % du poids de naissance)` : ""}
+      · imprimé le ${new Date().toLocaleDateString("fr-BE")} à ${fmtTime(new Date())}</div>
+  </div>`;
+
+  for (const key of keys){
+    const list = dayEvents(key);
+    const b = computeBilan(list);
+    const rule = ruleFor(key);
+    html += `<div class="day"><h2>${fmtDayKey(key).toUpperCase()} <span style="font-weight:400">(journée ${rule.startHour} h → ${rule.startHour} h)</span></h2>
+      <div class="pbilan"><b>Bilan :</b> ${b.feeds} tétée(s) · ${fmtNum(b.drunk)} mL de complément bus${b.drunkUnk?` (+${b.drunkUnk} inconnu)`:""} ·
+      ${fmtNum(b.pumped)} mL tirés${b.pumpUnk?` (+${b.pumpUnk} inconnu)`:""} · ${b.urines} pipi(s)${b.urineG?` (${b.urineG} g pesés)`:""} ·
+      ${b.stools} selle(s) · T° : ${b.temps.length?b.temps.map(t=>fmtNum(t,1)).join(" / ")+" °C":"—"} ·
+      Poids : ${b.weights.length?b.weights.map(fmtKg).join(" / "):"—"}${b.vitd?" · Vit. D ✓":""}</div>
+      <table><tr><th style="width:44px">Heure</th><th>Tétée</th><th>Complément</th><th>Tire-lait</th><th>Pipi</th><th>Selles</th><th>T° / Poids</th><th>Remarque</th></tr>`;
+    for (const e of list){
+      const feed = e.feeding ? [
+        e.feeding_breasts==="deux"?"2 seins":e.feeding_breasts,
+        e.feeding_duration_min?e.feeding_duration_min+" min":null,
+        e.feeding_shield?"téterelle":null, e.feeding_quality].filter(Boolean).join(", ") || "✓" : "";
+      const sup = e.supplement ? `${e.supplement_drunk_ml!=null?e.supplement_drunk_ml+" mL bus":"bu ?"}${e.supplement_offered_ml!=null?" / "+e.supplement_offered_ml+" prés.":""}` : "";
+      const pump = e.pumping ? (e.pumped_ml!=null?e.pumped_ml+" mL":"?") : "";
+      const uri = e.urine ? [e.urine_size, e.urine_weight_g!=null?e.urine_weight_g+" g":null].filter(Boolean).join(", ") || "✓" : "";
+      const sto = e.stool ? (e.stool_desc||"✓") : "";
+      const tw = [e.temperature_c!=null?fmtNum(e.temperature_c,1)+" °C":null,
+                  e.weight_kg!=null?fmtKg(e.weight_kg):null].filter(Boolean).join(" · ");
+      const note = [e.note, e.vitamin_d?"Vit. D donnée":null, e.incomplete?"⚠ À COMPLÉTER":null].filter(Boolean).join(" — ");
+      html += `<tr><td><b>${fmtTime(new Date(e.ts))}</b></td><td>${esc(feed)}</td><td>${esc(sup)}</td><td>${esc(pump)}</td><td>${esc(uri)}</td><td>${esc(sto)}</td><td>${tw}</td><td>${esc(note)}</td></tr>`;
+    }
+    html += `</table></div>`;
+  }
+  $("printArea").innerHTML = html;
+  window.print();
+}
+
+/* ---------- Historique initial (import unique) ---------- */
+const SEED = (() => {
+  const E = (ts, o) => ({ ts, ...o });
+  const F = (b, o={}) => ({ feeding:true, feeding_breasts:b, ...o });     // tétée
+  const S = (drunk, off=null, o={}) => ({ supplement:true, supplement_drunk_ml:drunk, supplement_offered_ml:off, ...o });
+  const P = ml => ({ pumping:true, pumped_ml:ml });                        // tire-lait
+  const U = (size=null, g=null) => ({ urine:true, urine_size:size, urine_weight_g:g });
+  return [
+    // Courbe de poids depuis la naissance
+    E("2026-06-12T12:00:00+02:00",{weight_kg:3.345, note:"Naissance — 48 cm"}),
+    E("2026-06-15T12:00:00+02:00",{weight_kg:3.045}),
+    E("2026-06-16T12:00:00+02:00",{weight_kg:3.070}),
+    E("2026-06-25T12:00:00+02:00",{weight_kg:2.925, note:"Poids le plus bas"}),
+    E("2026-06-30T12:00:00+02:00",{weight_kg:2.950}),
+    E("2026-07-03T12:00:00+02:00",{weight_kg:2.995}),
+    E("2026-07-04T12:00:00+02:00",{weight_kg:3.015}),
+    E("2026-07-06T12:00:00+02:00",{weight_kg:3.075}),
+    // JOUR 1 — jeudi 09/07 (10h → 10h)
+    E("2026-07-09T10:00:00+02:00",{weight_kg:3.120, ...F("droit",{feeding_shield:false}), ...U("normal"),
+      note:"Sein droit sans téterelle, peu du gauche — consultation médecin"}),
+    E("2026-07-09T14:00:00+02:00",{...F("deux",{feeding_duration_min:30, feeding_quality:"très bonne"}), ...U(null,30), temperature_c:36.5}),
+    E("2026-07-09T14:30:00+02:00",{...S(20,30), ...P(115), note:"Bu en ~30 min, arrêt car plus faim"}),
+    E("2026-07-09T16:16:00+02:00", U("gros",52)),
+    E("2026-07-09T17:00:00+02:00",{...F("deux",{feeding_duration_min:41}), note:"S'est endormie un peu, réveillée après 10 min et a repris"}),
+    E("2026-07-09T17:30:00+02:00", S(25)),
+    E("2026-07-09T18:14:00+02:00",{...U(null,33), temperature_c:36.8}),
+    E("2026-07-09T20:20:00+02:00", F("deux")),
+    E("2026-07-09T21:30:00+02:00", U("petit")),
+    E("2026-07-09T22:50:00+02:00",{...F("deux"), note:"Elle a bien tété"}),
+    E("2026-07-09T23:30:00+02:00",{...S(40), ...U(null,45), temperature_c:36.9}),
+    E("2026-07-09T23:40:00+02:00",{stool:true, stool_desc:"Petit caca jaune moutarde"}),
+    E("2026-07-10T03:40:00+02:00", S(40)),
+    E("2026-07-10T06:22:00+02:00", F("deux")),
+    E("2026-07-10T06:40:00+02:00",{...S(30), ...P(60)}),
+    E("2026-07-10T07:30:00+02:00", U("gros",75)),
+    E("2026-07-10T09:15:00+02:00", U(null,35)),
+    E("2026-07-10T09:25:00+02:00",{...F("deux"), note:"Elle a bien bu"}),
+    // JOUR 2 — vendredi 10/07
+    E("2026-07-10T10:30:00+02:00", S(20,40)),
+    E("2026-07-10T11:30:00+02:00", U(null,50)),
+    E("2026-07-10T12:00:00+02:00", P(50)),
+    E("2026-07-10T12:30:00+02:00",{...F("deux"), note:"Pas top / peu efficace"}),
+    E("2026-07-10T13:00:00+02:00",{...S(40,40), note:"Entièrement bu à 14h30, bu très lentement"}),
+    E("2026-07-10T14:30:00+02:00",{supplement:true, supplement_offered_ml:10, supplement_drunk_ml:null,
+      pumping:true, pumped_ml:null, incomplete:true, note:"Quantités à compléter"}),
+    E("2026-07-10T14:54:00+02:00",{...U("normal"), temperature_c:37.2}),
+    E("2026-07-10T15:00:00+02:00",{weight_kg:3.185}),
+    E("2026-07-10T17:45:00+02:00", U("normal")),
+    E("2026-07-10T18:30:00+02:00",{feeding:true}),
+    E("2026-07-10T19:30:00+02:00", S(30)),
+    E("2026-07-10T20:00:00+02:00",{stool:true, stool_desc:"Caca"}),
+    E("2026-07-10T21:30:00+02:00",{...U("normal"), temperature_c:36.9}),
+    E("2026-07-11T07:40:00+02:00", S(35)),
+    E("2026-07-11T08:00:00+02:00", U("normal")),
+    E("2026-07-11T09:00:00+02:00", P(90)),
+    // JOUR 3 — samedi 11/07
+    E("2026-07-11T11:15:00+02:00",{feeding:true, note:"Petite tétée courte"}),
+    E("2026-07-11T11:40:00+02:00", U("gros")),
+    E("2026-07-11T12:30:00+02:00", U("normal")),
+    E("2026-07-11T14:15:00+02:00",{weight_kg:3.185, ...F("deux"), ...S(40), ...U("normal"),
+      temperature_c:36.7, note:"Passage de la sage-femme"}),
+    E("2026-07-11T15:00:00+02:00", P(80)),
+    E("2026-07-11T16:00:00+02:00", U("gros")),
+    E("2026-07-11T17:30:00+02:00",{feeding:true, feeding_duration_min:40, note:"Pas terrible, n'arrêtait pas de s'endormir (jusqu'à 18h10)"}),
+    E("2026-07-11T18:10:00+02:00",{...S(40), ...P(35)}),
+    E("2026-07-11T18:30:00+02:00",{...U("normal"), stool:true, stool_desc:"Tout petit caca", note:"Change effectué"}),
+    E("2026-07-11T20:30:00+02:00",{feeding:true, note:"Bonne tétée — a recraché un peu de lait"}),
+    E("2026-07-11T21:00:00+02:00",{...S(40), ...U("normal")}),
+    E("2026-07-11T21:10:00+02:00", P(40)),
+    E("2026-07-11T22:10:00+02:00",{...U("normal"), temperature_c:37.0})
+  ];
+})();
+
+async function importSeed(){
+  if (settings.seed_done){ alert("L'historique a déjà été importé."); return; }
+  if (!confirm(`Importer ${SEED.length} entrées (poids depuis la naissance + journées des 9, 10 et 11 juillet) ?`)) return;
+  $("seedBtn").disabled = true;
+  for (let i=0; i<SEED.length; i+=20){
+    const { error } = await sb.from("events").insert(SEED.slice(i,i+20));
+    if (error){ alert("Erreur pendant l'import : " + error.message); $("seedBtn").disabled = false; return; }
+  }
+  await saveSetting("seed_done", true);
+  await saveSetting("day_rules", [{from:"2026-06-12", startHour:10}]);
+  await saveSetting("baby", settings.baby);
+  await loadAll();
+  alert("Historique importé ✓");
+}
+
+/* ---------- Rafraîchissement au retour sur l'app ---------- */
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && sb && Date.now() - lastLoad > 60000) loadAll();
+});
+window.addEventListener("online", () => { if (sb) trySyncQueue().then(renderAll); });
+
+init();
+</script>
+</body>
+</html>
