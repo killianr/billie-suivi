@@ -1085,8 +1085,12 @@ async function importSeed(){
   if (settings.seed_done){ alert("L'historique a déjà été importé."); return; }
   if (!confirm(`Importer ${SEED.length} entrées (poids depuis la naissance + journées des 9, 10 et 11 juillet) ?`)) return;
   $("seedBtn").disabled = true;
-  for (let i=0; i<SEED.length; i+=20){
-    const { error } = await sb.from("events").insert(SEED.slice(i,i+20));
+  // Normalisation : toutes les colonnes booléennes doivent être présentes
+  const BASE = { feeding:false, supplement:false, pumping:false, urine:false,
+                 stool:false, vitamin_d:false, incomplete:false };
+  const rows = SEED.map(e => ({ ...BASE, ...e }));
+  for (let i=0; i<rows.length; i+=20){
+    const { error } = await sb.from("events").insert(rows.slice(i,i+20));
     if (error){ alert("Erreur pendant l'import : " + error.message); $("seedBtn").disabled = false; return; }
   }
   await saveSetting("seed_done", true);
