@@ -91,9 +91,9 @@
   nav.tabs button .ico{font-size:21px; line-height:1}
   #addBtn{
     background:var(--accent); color:var(--accent-ink); border-radius:50%;
-    width:58px; height:58px; font-size:30px; font-weight:800; border:none;
-    margin-top:-26px; box-shadow:var(--shadow); cursor:pointer; flex-direction:row;
-    justify-self:center; padding:0;
+    width:58px; height:58px; border:none;
+    margin-top:-26px; box-shadow:var(--shadow); cursor:pointer;
+    display:grid; place-items:center; justify-self:center; padding:0; line-height:0;
   }
 
   /* ---------- Journal ---------- */
@@ -180,9 +180,9 @@
     #printArea th,#printArea td{border:1px solid #999; padding:3px 5px; text-align:left; vertical-align:top}
     #printArea th{background:#eee}
     #printArea .pbilan{margin:4px 0 2px; padding:7px 9px; background:#f2f2f2; border:1px solid #999;
-      display:grid; grid-template-columns:repeat(4,1fr); gap:4px 14px}
+      display:grid; grid-template-columns:repeat(4,1fr); gap:5px 14px}
+    #printArea .pbilan span{display:block; color:#555; font-size:10px; text-transform:uppercase; letter-spacing:.3px; margin-bottom:1px}
     #printArea .pbilan b{font-size:13px}
-    #printArea .pbilan span{display:block; color:#555; font-size:10px; text-transform:uppercase; letter-spacing:.3px}
     #printArea .day{page-break-inside:avoid}
   }
 </style>
@@ -327,7 +327,7 @@
 <nav class="tabs" id="appNav" style="display:none">
   <button data-tab="journal" class="active" onclick="showTab('journal')"><span class="ico">📖</span>Journal</button>
   <button data-tab="poids" onclick="showTab('poids')"><span class="ico">📈</span>Poids</button>
-  <button id="addBtn" onclick="openComposer()">＋</button>
+  <button id="addBtn" onclick="openComposer()" aria-label="Ajouter une entrée"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 4.5v15M4.5 12h15" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/></svg></button>
   <button data-tab="export" onclick="showTab('export')"><span class="ico">🖨️</span>Export</button>
   <button data-tab="reglages" onclick="showTab('reglages')"><span class="ico">⚙️</span>Réglages</button>
 </nav>
@@ -1073,7 +1073,7 @@ function printReport(){
       [b.vitd ? "✓ donnée" : "—", "vitamine D"]
     ];
     html += `<div class="day"><h2>${fmtDayKey(key).toUpperCase()} <span style="font-weight:400">(journée ${rule.startHour} h → ${rule.startHour} h)</span></h2>
-      <div class="pbilan">${items.map(([v,l])=>`<div><b>${v}</b><span>${l}</span></div>`).join("")}</div>
+      <div class="pbilan">${items.map(([v,l])=>`<div><span>${l}</span><b>${v}</b></div>`).join("")}</div>
       <table><tr><th style="width:44px">Heure</th><th>Tétée</th><th>Complément</th><th>Tire-lait</th><th>Pipi</th><th>Selles</th><th>T° / Poids</th><th>Remarque</th></tr>`;
     for (const e of list){
       const feed = e.feeding ? [
