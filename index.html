@@ -159,6 +159,23 @@
     border-radius:12px; padding:10px 0; font-weight:800; font-size:15px; cursor:pointer;
   }
   .pre:active{background:var(--c-compl); color:#fff}
+
+  /* ---------- Timeline prochaine tétée ---------- */
+  .nf-top{display:flex; justify-content:space-between; align-items:baseline}
+  .nf-msg{font-size:14.5px; margin:6px 0 12px}
+  .nf-bar{position:relative; height:14px; border-radius:999px; background:var(--line)}
+  .nf-zone{position:absolute; top:0; bottom:0; opacity:.9}
+  .nf-zone.first{border-radius:999px 0 0 999px}
+  .nf-zone.last{border-radius:0 999px 999px 0}
+  .nf-cursor{position:absolute; top:-4px; bottom:-4px; width:4px; border-radius:3px;
+    background:var(--ink); box-shadow:0 0 0 2.5px var(--card); transform:translateX(-50%)}
+  .nf-ticks{position:relative; height:15px; margin-top:6px; font-size:10.5px; color:var(--muted); font-weight:700}
+  .nf-ticks span{position:absolute; transform:translateX(-50%); white-space:nowrap}
+  .nf-ticks span.start{transform:none; left:0}
+  .nf-hint{margin-top:12px; background:var(--warn-bg); color:var(--warn); font-weight:700;
+    font-size:13.5px; padding:9px 11px; border-radius:11px; cursor:pointer}
+  .nf-foot{display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:12px}
+  .nf-mot{font-size:12.5px; color:var(--muted); font-style:italic; flex:1}
   .composer-actions{display:flex; gap:10px; margin-top:16px}
 
   /* ---------- Poids ---------- */
@@ -231,6 +248,7 @@
 <main id="appMain" class="screen" style="display:none">
   <!-- Journal -->
   <section id="tab-journal">
+    <div id="nextFeed"></div>
     <div class="daynav">
       <button onclick="shiftDay(-1)">‹</button>
       <div class="title"><b id="dayTitle"></b><span class="small muted" id="daySub"></span></div>
@@ -310,6 +328,20 @@
         <div class="field"><label>Min. selles / jour</label><input id="gStools" type="number" inputmode="numeric" placeholder="—"></div>
       </div>
       <button class="btn slim" onclick="saveGoals()">Enregistrer les objectifs</button>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:18px; margin-bottom:6px">⏱️ Rythme des tétées</h2>
+      <p class="muted small">Prescription actuelle de la sage-femme. La timeline du journal s'adapte automatiquement : avant « dès », c'est trop tôt (sauf si elle réclame — toujours OK) ; vert = fenêtre idéale ; orange = à faire bientôt ; rouge = maximum dépassé.</p>
+      <div class="row3">
+        <div class="field"><label>OK dès</label>
+          <select id="sFeedEarly"><option value="120">2 h</option><option value="150" selected>2 h 30</option><option value="180">3 h</option></select></div>
+        <div class="field"><label>Idéal toutes les</label>
+          <select id="sFeedIdeal"><option value="150">2 h 30</option><option value="180" selected>3 h</option><option value="210">3 h 30</option><option value="240">4 h</option></select></div>
+        <div class="field"><label>Maximum</label>
+          <select id="sFeedMax"><option value="210">3 h 30</option><option value="240" selected>4 h</option><option value="270">4 h 30</option><option value="300">5 h</option></select></div>
+      </div>
+      <button class="btn slim" onclick="saveFeedWindow()">Enregistrer le rythme</button>
     </div>
 
     <div class="card">
@@ -591,7 +623,7 @@ function showTab(name){
 /* ---------- Rendu global ---------- */
 function renderAll(){
   $("hName").textContent = settings.baby.name || "Billie";
-  renderHeader(); renderJournal(); renderWeight(); renderSettings(); updateSyncBar();
+  renderHeader(); renderNextFeed(); renderJournal(); renderWeight(); renderSettings(); updateSyncBar();
 }
 
 function lastWeight(){
@@ -616,7 +648,7 @@ function renderHeader(){
   if (lastSupp) html += `<span>🍼 Complément <b>${ago(lastSupp.ts)}</b></span>`;
   $("hTimers").innerHTML = html || `<span class="muted">Aucune entrée pour l'instant</span>`;
 }
-setInterval(renderHeader, 60000);
+setInterval(() => { renderHeader(); renderNextFeed(); }, 60000);
 
 /* ---------- Journal ---------- */
 function dayEvents(key){
@@ -729,6 +761,111 @@ function renderJournal(){
 }
 function shiftDay(d){ curDay = shiftKey(curDay, d); renderJournal(); }
 function goToToday(){ curDay = dayKeyOf(new Date()); renderJournal(); }
+
+/* ---------- Prochaine tétée : timeline visuelle ---------- */
+const MOTIVATIONS = [
+  "Chaque gramme compte, chaque jour est une victoire 💛",
+  "Vous formez une équipe formidable 👨‍👩‍👧",
+  "Billie progresse grâce à vous, tétée après tétée 🌱",
+  "Une tétée moyenne vaut mieux que du stress : vous faites ce qu'il faut ✨",
+  "Respire — la courbe monte, et c'est vous qui l'avez fait remonter 📈",
+  "Pas besoin d'être parfaits, juste présents. Et vous l'êtes 💪",
+  "Le tire-lait, les nuits courtes… tout ça, c'est de l'amour en mL 🫙",
+  "Elle grandit un peu plus chaque jour, à son rythme 🐢",
+  "Fatigués mais formidables 💜",
+  "Un jour à la fois — et regardez déjà le chemin parcouru 🛤️",
+  "La courbe qui remonte, c'est votre travail d'équipe 🤝",
+  "Prenez aussi soin de vous deux : un parent reposé, c'est un super-pouvoir 😴"
+];
+function feedCfg(){
+  const f = settings.feeding_window || {};
+  return { early: f.early ?? 150, ideal: f.ideal ?? 180, max: f.max ?? 240 };
+}
+function lblMin(m){ return m % 60 ? Math.floor(m/60) + " h " + pad(m%60) : (m/60) + " h"; }
+function renderNextFeed(){
+  const el = $("nextFeed");
+  if (!el) return;
+  const lastFeed = [...events].reverse().find(e => e.feeding);
+  if (!lastFeed){ el.innerHTML = ""; return; }
+  const cfg = feedCfg();
+  const t0 = new Date(lastFeed.ts).getTime();
+  const elapsed = (Date.now() - t0) / 60000;
+  const R = cfg.max + 30;                       // étendue affichée
+  const pct = v => Math.min(100, Math.max(0, v / R * 100));
+  const idealT = new Date(t0 + cfg.ideal*60000);
+  const maxT = new Date(t0 + cfg.max*60000);
+  const greenEnd = Math.min(cfg.ideal + 30, cfg.max);
+
+  let msg;
+  if (elapsed < cfg.early)
+    msg = `Prochaine tétée idéale vers <b>${fmtTime(idealT)}</b> — si elle réclame avant, c'est très bien aussi 💛`;
+  else if (elapsed < greenEnd)
+    msg = `🟢 <b>C'est la fenêtre idéale</b> — au plus tard ${fmtTime(maxT)}`;
+  else if (elapsed < cfg.max)
+    msg = `🟠 À proposer bientôt — au plus tard <b>${fmtTime(maxT)}</b>`;
+  else
+    msg = `🔴 Maximum dépassé de <b>${Math.round(elapsed - cfg.max)} min</b> — propose une tétée dès que possible`;
+
+  // Rappel complément : si la dernière tétée n'a pas (encore) été suivie d'un complément
+  const lastSupp = [...events].reverse().find(e => e.supplement);
+  const suppDue = elapsed >= 0 && elapsed < 90 &&
+    (!lastSupp || new Date(lastSupp.ts).getTime() < t0);
+  const hint = suppDue
+    ? `<div class="nf-hint" onclick="openComposer(null,'compl')">🍼 Penser au complément après la tétée — appuie ici pour l'encoder</div>` : "";
+
+  const g = settings.goals || {};
+  const todays = computeBilan(dayEvents(dayKeyOf(new Date()))).feeds;
+  const count = `Tétées aujourd'hui : <b>${todays}</b>${g.feeds ? "/" + g.feeds : ""}`;
+  const mot = MOTIVATIONS[Math.floor(Date.now()/3600e3) % MOTIVATIONS.length];
+
+  el.innerHTML = `<div class="card">
+    <div class="nf-top"><b>⏱️ Prochaine tétée</b><span class="small muted">${count}</span></div>
+    <div class="nf-msg">${msg}</div>
+    <div class="nf-bar">
+      <div class="nf-zone" style="left:${pct(cfg.early)}%; width:${pct(greenEnd)-pct(cfg.early)}%; background:var(--c-poids)"></div>
+      <div class="nf-zone" style="left:${pct(greenEnd)}%; width:${pct(cfg.max)-pct(greenEnd)}%; background:var(--c-vitd)"></div>
+      <div class="nf-zone last" style="left:${pct(cfg.max)}%; width:${100-pct(cfg.max)}%; background:var(--c-temp)"></div>
+      <div class="nf-cursor" style="left:${pct(elapsed)}%"></div>
+    </div>
+    <div class="nf-ticks">
+      <span class="start">tétée ${fmtTime(new Date(t0))}</span>
+      <span style="left:${pct(cfg.early)}%">${lblMin(cfg.early)}</span>
+      <span style="left:${pct(cfg.ideal)}%">${lblMin(cfg.ideal)}</span>
+      <span style="left:${pct(cfg.max)}%">max</span>
+    </div>
+    ${hint}
+    <div class="nf-foot">
+      <span class="nf-mot">${mot}</span>
+      <button class="btn slim secondary" onclick="icsReminder()">⏰ Rappel agenda</button>
+    </div>
+  </div>`;
+}
+function icsReminder(){
+  const lastFeed = [...events].reverse().find(e => e.feeding);
+  if (!lastFeed){ alert("Encode d'abord une tétée."); return; }
+  const cfg = feedCfg();
+  const t0 = new Date(lastFeed.ts).getTime();
+  const start = new Date(t0 + cfg.ideal*60000);
+  const end = new Date(t0 + cfg.max*60000);
+  if (end.getTime() < Date.now()){ alert("La fenêtre de cette tétée est déjà passée — encode la prochaine tétée d'abord."); return; }
+  const f = d => d.toISOString().replace(/[-:]/g,"").replace(/\.\d{3}/,"");
+  const ics = ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Billie//Suivi//FR","BEGIN:VEVENT",
+    "UID:billie-" + t0 + "@suivi",
+    "DTSTAMP:" + f(new Date()),
+    "DTSTART:" + f(start),
+    "DTEND:" + f(end),
+    "SUMMARY:🍼 Fenêtre de tétée de Billie",
+    "DESCRIPTION:Fenêtre idéale dès " + fmtTime(start) + " — maximum " + fmtTime(end),
+    "BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:Tétée de Billie","TRIGGER:-PT5M","END:VALARM",
+    "END:VEVENT","END:VCALENDAR"].join("\r\n");
+  download("rappel-tetee.ics", ics, "text/calendar;charset=utf-8");
+}
+async function saveFeedWindow(){
+  const early = +$("sFeedEarly").value, ideal = +$("sFeedIdeal").value, max = +$("sFeedMax").value;
+  if (!(early <= ideal && ideal <= max)){ alert("Vérifie l'ordre : « dès » ≤ « idéal » ≤ « maximum »."); return; }
+  await saveSetting("feeding_window", { early, ideal, max });
+  renderAll(); alert("Rythme enregistré ✓");
+}
 
 /* ---------- Synchronisation temps réel entre appareils ---------- */
 let rtStarted = false, rtTimer = null;
@@ -966,6 +1103,10 @@ function renderSettings(){
   $("gDrunk").value = g.drunk_ml ?? "";
   $("gUrines").value = g.urines ?? "";
   $("gStools").value = g.stools ?? "";
+  const fw = feedCfg();
+  $("sFeedEarly").value = fw.early;
+  $("sFeedIdeal").value = fw.ideal;
+  $("sFeedMax").value = fw.max;
   const rules = sortedRules();
   $("rulesList").innerHTML = rules.map((r,i) => `
     <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px dashed var(--line)">
